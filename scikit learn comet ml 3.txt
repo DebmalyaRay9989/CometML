@@ -1,0 +1,101 @@
+# This Python 3 environment comes with many helpful analytics libraries installed
+# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
+# For example, here's several helpful packages to load
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+
+# Input data files are available in the read-only "../input/" directory
+# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
+
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
+
+# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All" 
+# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
+
+
+!pip install comet_ml
+
+import pandas as pd
+import seaborn as sns
+from matplotlib import pyplot as plt
+from comet_ml import Experiment
+
+
+# Создайте эксперимент с помощью вашего API ключа
+experiment = Experiment(api_key="WPryeowESFIdKyhqDwFvayTIx",
+                        project_name="kaggle-test",
+                        workspace="mikhailkosov",
+                       )
+					   
+					   
+					   
+					   
+df = pd.read_csv('/kaggle/input/noshowappointments/KaggleV2-May-2016.csv')
+df.head(5)
+
+
+df.hist(figsize=(16,14));
+experiment.log_figure(figure=plt)  #логируем гистограмму
+
+# Уникальные значения в `Age`:
+df.Age.unique()
+
+
+# Удалим аномальные значения
+df = df[(df.Age >= 0) & (df.Age <= 110)]
+
+
+plt.figure(figsize=(24,6))
+plt.xticks(rotation=90)
+ax = sns.countplot(x=df.Age)
+ax.set_title("Распределение пациентов по возрасту")
+experiment.log_figure(figure=plt)
+plt.show()
+
+
+df.Gender = df.Gender.replace({'F': 0, 'M': 1})
+
+categorical_columns_names = ['Neighbourhood']
+encoded_columns = pd.get_dummies(df, columns = categorical_columns_names)
+encoded_columns.drop(['AppointmentID', 'PatientId', 'ScheduledDay', 'AppointmentDay', 'No-show'], axis=1, inplace = True)
+encoded_columns.head()
+
+
+y = df['No-show']
+y = y.replace({'No': 0, 'Yes': 1})
+y.value_counts(True)
+
+from sklearn.preprocessing import MinMaxScaler
+
+scaler = MinMaxScaler()
+X = scaler.fit_transform(encoded_columns)
+print(X.shape)
+
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+
+logreg = LogisticRegression()
+random_state = 42
+logreg.fit(X, y)
+
+
+# Логирование параметров обучения
+params={"random_state":random_state, "model_type":"logreg"}
+experiment.log_parameters(params)
+
+
+y_pred = logreg.predict(X)
+accuracy = accuracy_score(y, y_pred)
+
+print("Доля правильных ответов: {:6.3f}".format(accuracy))
+
+
+# Логирование метрик
+metrics = {"accuracy":accuracy}
+experiment.log_metrics(metrics)
+experiment.log_confusion_matrix(y.tolist(), y_pred.tolist())

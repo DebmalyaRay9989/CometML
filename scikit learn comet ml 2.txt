@@ -1,0 +1,32 @@
+from sklearn.model_selection import cross_val_score
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import StratifiedKFold
+from numpy import mean
+from joblib import dump
+from comet_ml import Experiment
+import comet_ml
+
+#initializes a project named "model_tracking"
+comet_ml.login(project_name="model_tracking")
+
+#Algorithm of choice
+model  = KNeighborsClassifier(n_neighbors=3)
+
+#Training using Stratified K-fold cross validation
+def cross_val_eval(model, X, y):
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=5)
+    cv_scores = cross_val_score(model, X, y, cv = cv, scoring='accuracy', n_jobs=-1, error_score='raise')
+    return cv_scores
+
+cv_scores = cross_val_eval(model, X, y)
+print(mean(cv_scores))
+
+#fitting and then extracting model
+model.fit(X, y)
+dump(model, 'model.joblib')
+
+#Logs model experiment to the project
+experiment = Experiment()
+experiment.log_model("model1", "model directory within the computer")
+
+experiment.end()
